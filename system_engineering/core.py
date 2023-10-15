@@ -94,15 +94,18 @@ class SystemParams:
                 objective,
                 self.to_ndarray(),
                 constraints=constraints,
-                tol=1e-52)
+                tol=1e-9,
+                method="SLSQP")
         
-        print(result)
-
-        return self.from_ndarray(result.x)  
+        return self.from_ndarray(result.x), result
     
     def to_str(self) -> str:  
         output = []
         for field, value in self.__dict__.items():
-            output.append(f"{field}: {value:~}")
+            if isinstance(value, Quantity):
+                formatted_value = "{:.3f~P}".format(value)
+                output.append(f"{field}: {formatted_value}")
+            else:
+                output.append(f"{field}: {value:.3f}")
         return "\n".join(output)
         
