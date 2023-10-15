@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pint import Quantity, UnitRegistry
 from system_engineering.core import Eq, Gt, SystemParams, Q_
 
 @dataclass
