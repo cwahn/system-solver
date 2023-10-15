@@ -94,8 +94,12 @@ class SystemParams:
                 objective,
                 self.to_ndarray(),
                 constraints=constraints,
-                tol=1e-9,
-                method="SLSQP")
+                tol=1e-15,
+                method="SLSQP",
+                options={
+                    "maxiter": 1000,
+                    "disp": True
+                },)
         
         return self.from_ndarray(result.x), result
     
