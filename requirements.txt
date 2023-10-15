@@ -1,0 +1,4 @@
+numpy==1.26.1
+Pint==0.22
+scipy==1.11.3
+typing_extensions==4.8.0
