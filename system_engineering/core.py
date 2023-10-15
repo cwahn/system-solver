@@ -1,6 +1,6 @@
 
 from dataclasses import dataclass, fields
-from typing import Any, Self, Union, Tuple, Callable, TypeVar
+from typing import Any, Union, Tuple, Callable, TypeVar
 from math import exp
 from scipy.optimize import minimize, NonlinearConstraint
 import numpy as np
@@ -62,14 +62,14 @@ class SystemParams:
     def to_ndarray(self):
         return np.array([get_magnitude(getattr(self, field.name)) for field in fields(self)]).flatten()
     
-    def from_ndarray(self, values: np.ndarray) -> Self:
+    def from_ndarray(self, values: np.ndarray) -> 'SystemParams':
         quantities = {
             field.name: 
             (Quantity(value, getattr(self, field.name).units) if isinstance(getattr(self, field.name), Quantity) else value) for value, field in zip(values, fields(self))
         }
         return type(self)(**quantities)
     
-    def solve(self, *fs: Tuple[Callable[[Self], float], ...]) -> Self:
+    def solve(self, *fs: Tuple[Callable[['SystemParams'], float], ...]) -> 'SystemParams':
         constraints = []
         loss_functions = []
 
