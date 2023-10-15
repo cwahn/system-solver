@@ -78,10 +78,10 @@ class SystemParams:
             
             if isinstance(f, Eq):
                 constraints.append(NonlinearConstraint(constraint_func, 0, 0))
-            elif isinstance(f, Gt):
-                constraints.append(NonlinearConstraint(constraint_func, 0, np.inf))
             elif isinstance(f, Lt):
                 constraints.append(NonlinearConstraint(constraint_func, -np.inf, 0))
+            elif isinstance(f, Gt):
+                constraints.append(NonlinearConstraint(constraint_func, 0, np.inf))
             else:
                 loss_functions.append(f)
 
@@ -89,10 +89,20 @@ class SystemParams:
             losses = [func(self.from_ndarray(x)) for func in loss_functions]
             mse = sum([loss**2 for loss in losses]) / len(losses)
             return mse
-
-        return self.from_ndarray(
-            minimize(
+        
+        result = minimize(
                 objective,
                 self.to_ndarray(),
                 constraints=constraints,
-                tol=1e-52).x)  
+                tol=1e-52)
+        
+        print(result)
+
+        return self.from_ndarray(result.x)  
+    
+    def to_str(self) -> str:  
+        output = []
+        for field, value in self.__dict__.items():
+            output.append(f"{field}: {value:~}")
+        return "\n".join(output)
+        

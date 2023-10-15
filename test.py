@@ -19,4 +19,4 @@ res = initial.solve(
     lambda x: x.a.magnitude + x.b.magnitude + x.c.magnitude
 )
 
-print(res)
+print(res.to_str())
