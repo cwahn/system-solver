@@ -1,28 +1,23 @@
-from dataclasses import dataclass, fields
-from typing import Callable, Self, Union
-import numpy as np
+from dataclasses import dataclass
 from pint import Quantity, UnitRegistry
-from scipy.optimize import minimize
-
-from system_engineering.core import Eq, Mse, SystemParams
-
-ureg = UnitRegistry()
-Q = Quantity
-
-def get_magnitude(value: Union[Quantity, float]) -> float:
-    return value.magnitude if isinstance(value, Quantity) else value
+from system_engineering.core import Eq, Gt, SystemParams, Q_
 
 @dataclass
 class PizzaDroneParam(SystemParams):
-    a: Q
-    b: Q
+    a: Q_
+    b: Q_
+    c: Q_
     
-initial = PizzaDroneParam(2 * ureg.meter, 0 * ureg.meter)
+initial = PizzaDroneParam(
+    Q_(2, "m"), 
+    Q_(0, "m"),
+    Q_(10, "sec"))
 
 res = initial.solve(
-    Mse(
-    Eq(lambda x: x.a , 2 * ureg.meter),
-    Eq(lambda x: x.a + x.b, 42)
-    ))
+    Eq(lambda x: x.a , Q_(2, "m")),
+    Eq(lambda x: x.a + x.b, 42),
+    Gt(lambda x: x.c, 11),
+    lambda x: x.a.magnitude + x.b.magnitude + x.c.magnitude
+)
 
 print(res)

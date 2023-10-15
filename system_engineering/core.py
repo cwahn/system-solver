@@ -2,14 +2,16 @@
 from dataclasses import dataclass, fields
 from typing import Any, Self, Union, Tuple, Callable, TypeVar
 from math import exp
-from scipy.optimize import minimize
+from scipy.optimize import minimize, NonlinearConstraint
 import numpy as np
 from pint import Quantity
 
-def get_magnitude(value: Union[Quantity, float]) -> float:
-    return value.magnitude if isinstance(value, Quantity) else value
+Q_ = Quantity
 
 A = TypeVar("A")
+
+def get_magnitude(value: Union[Quantity, float]) -> float:
+    return value.magnitude if isinstance(value, Quantity) else value
 
 class Eq:
     def __init__(self,  
@@ -19,11 +21,9 @@ class Eq:
         self.rhs = rhs
 
     def __call__(self, vars: A) -> float:
-        # If lhs is callable, call it with A; otherwise, use its value directly
         lhs_value = get_magnitude(self.lhs(vars) if callable(self.lhs) else self.lhs)
         rhs_value = get_magnitude(self.rhs(vars) if callable(self.rhs) else self.rhs)
-        
-        return exp(0.2 * abs(lhs_value - rhs_value)) - 1
+        return lhs_value - rhs_value
     
 class Lt:
     def __init__(self,  
@@ -33,11 +33,9 @@ class Lt:
         self.rhs = rhs
 
     def __call__(self, vars: A) -> float:
-        # If lhs is callable, call it with A; otherwise, use its value directly
         lhs_value = get_magnitude(self.lhs(vars) if callable(self.lhs) else self.lhs)
         rhs_value = get_magnitude(self.rhs(vars) if callable(self.rhs) else self.rhs)
-        
-        return exp(0.2 * abs(lhs_value - rhs_value)) - 1 if lhs_value > rhs_value else 0
+        return rhs_value - lhs_value
     
 class Gt:
     def __init__(self,  
@@ -47,11 +45,9 @@ class Gt:
         self.rhs = rhs
 
     def __call__(self, vars: A) -> float:
-        # If lhs is callable, call it with A; otherwise, use its value directly
         lhs_value = get_magnitude(self.lhs(vars) if callable(self.lhs) else self.lhs)
         rhs_value = get_magnitude(self.rhs(vars) if callable(self.rhs) else self.rhs)
-        
-        return exp(0.2 * abs(lhs_value - rhs_value)) - 1 if lhs_value < rhs_value else 0
+        return lhs_value - rhs_value
         
 class Mse:
     def __init__(self, *fs: Tuple[Callable[[A], float], ...]) -> None:
@@ -66,16 +62,37 @@ class SystemParams:
     def to_ndarray(self):
         return np.array([get_magnitude(getattr(self, field.name)) for field in fields(self)]).flatten()
     
-    def from_ndarray(self, values: np.ndarray) -> 'SystemParams':
+    def from_ndarray(self, values: np.ndarray) -> Self:
         quantities = {
             field.name: 
             (Quantity(value, getattr(self, field.name).units) if isinstance(getattr(self, field.name), Quantity) else value) for value, field in zip(values, fields(self))
         }
         return type(self)(**quantities)
     
-    def solve(self, f: Callable[['SystemParams'], float]) -> 'SystemParams':
+    def solve(self, *fs: Tuple[Callable[[Self], float], ...]) -> Self:
+        constraints = []
+        loss_functions = []
+
+        for f in fs:
+            constraint_func = lambda x, func=f: func(self.from_ndarray(x))
+            
+            if isinstance(f, Eq):
+                constraints.append(NonlinearConstraint(constraint_func, 0, 0))
+            elif isinstance(f, Gt):
+                constraints.append(NonlinearConstraint(constraint_func, 0, np.inf))
+            elif isinstance(f, Lt):
+                constraints.append(NonlinearConstraint(constraint_func, -np.inf, 0))
+            else:
+                loss_functions.append(f)
+
+        def objective(x):
+            losses = [func(self.from_ndarray(x)) for func in loss_functions]
+            mse = sum([loss**2 for loss in losses]) / len(losses)
+            return mse
+
         return self.from_ndarray(
             minimize(
-                lambda x: f(self.from_ndarray(x)),
-                  self.to_ndarray(),
-                  tol=1e-9).x) 
+                objective,
+                self.to_ndarray(),
+                constraints=constraints,
+                tol=1e-52).x)  
