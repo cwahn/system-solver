@@ -1,6 +1,24 @@
 # system-engineering
 Python system engineering library
 
+# Usage
+## Parameters
+The parameters of a system shoul be expressed as a `dataclass` inheriting `SystemParam`. The members of the class could be float or `pin` `Quantity`, whihch represent physical quantity with unit. The value of each member will be used as initial guess to solve system numerically.
+
+## Equantions, Restrictions, and Target Function
+Often system engineering problem includes complex relations between parameters. Which includes equations, restrictions, and target functions to be minimized.
+
+The `solve` method of the `SystemParam` class will take list of this functions. The key is Callable of signature `Callable[[SystemParam], Union[float, Quantitiy]]`. This functios will take parameters of the system and result a single value. 
+
+### Equation
+`Eq`, stands for equation which is concrete relation between parameters. Constructor of `Eq` will take two argugment, `lhs` and `rhs`. Each of them should be either `Callable[[SystemParam], Union[float, Quantitiy]]`, `float`, or `Quantitiy`. They will represent each side of a equation. Each side must have physically coherent units, but with exception of one side is `float`. In this case, the other side is automatically converted to magnitude.
+
+### Constraint or Inequality
+Sometimes there are conditions or inequalities that set of method should meet. They can be expressed with `Gt` and `Lt` which stands for 'Greater Than' and 'Lesser Than' respectively. Thes will take two arguments like `Eq`.
+
+### Target Function
+All the other callables with signature of `Callable[[SystemParam], Union[float, Quantitiy]]` will be treated as target functions, which should be minimized. If there are more than one target function, they will be combined to form a sigle target function in a manner of MSE(Mean Squared Error).
+
 # Example
 
 ```python
@@ -60,4 +78,13 @@ mtow: 1.800 kg
 cruising_speed: 0.524 m/s
 endurance: 20.000 min
 range: 10.471 km
+```
+
+## Requirements
+```
+Python>=3.10
+numpy
+Pint==0.22
+scipy==1.11.3
+typing_extensions==4.8.0
 ```
