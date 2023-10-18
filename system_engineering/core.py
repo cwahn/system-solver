@@ -1,4 +1,5 @@
 from dataclasses import dataclass, fields
+import inspect
 from typing import Any, List, Union, Tuple, Callable, TypeVar
 from math import exp
 from scipy.optimize import minimize, NonlinearConstraint
@@ -91,6 +92,36 @@ class Gt:
         return _magnitude(lhs_ - rhs_)
 
 
+# Constraint method decorator
+def equation(func):
+    def wrapper(self, other):
+        lhs, rhs = func(other)
+        return _magnitude(lhs - rhs)
+
+    wrapper.constraint_type = "equation"
+    return wrapper
+
+
+# Constraint method decorator
+def less_than(func):
+    def wrapper(self, other):
+        lhs, rhs = func(other)
+        return _magnitude(lhs - rhs)
+
+    wrapper.constraint_type = "less_than"
+    return wrapper
+
+
+# Constraint method decorator
+def greater_than(func):
+    def wrapper(self, other):
+        lhs, rhs = func(other)
+        return _magnitude(lhs - rhs)
+
+    wrapper.constraint_type = "greater_than"
+    return wrapper
+
+
 @dataclass
 class System:
     def to_ndarray(self):
@@ -114,26 +145,71 @@ class System:
         }
         return type(self)(**quantities)
 
-    def solve(self, fs: List[Callable[["System"], Num]]) -> "System":
+    def _get_constraints(self):
         constraints = []
-        loss_fs = []
+        for _, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            if hasattr(method, "constraint_type"):
+                # wrapped_constraint = lambda x, func=method: func(self.from_ndarray(x))
+                wrapped_constraint = lambda x, m=method: m(self.from_ndarray(x))
+                match method.constraint_type:
+                    case "equation":
+                        constraints.append(
+                            NonlinearConstraint(wrapped_constraint, 0, 0)
+                        )
+                    case "less_than":
+                        constraints.append(
+                            NonlinearConstraint(wrapped_constraint, -np.inf, 0)
+                        )
+                    case "greater_than":
+                        constraints.append(
+                            NonlinearConstraint(wrapped_constraint, 0, np.inf)
+                        )
+        return constraints
 
-        for f in fs:
-            constraint_func = lambda x, func=f: func(self.from_ndarray(x))
-
-            if isinstance(f, Eq):
-                constraints.append(NonlinearConstraint(constraint_func, 0, 0))
-            elif isinstance(f, Lt):
-                constraints.append(NonlinearConstraint(constraint_func, -np.inf, 0))
-            elif isinstance(f, Gt):
-                constraints.append(NonlinearConstraint(constraint_func, 0, np.inf))
-            else:
-                loss_fs.append(f)
+    def solve(
+        self,
+        objective_funcs: List[Callable[["System"], Num]],
+        extra_constraints: List[Callable[["System"], Num]] = [],
+    ) -> "System":
+        # constraints = self._get_constraints()
+        constraints = []
+        for _, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            if hasattr(method, "constraint_type"):
+                # wrapped_constraint = lambda x, func=method: func(self.from_ndarray(x))
+                wrapped_constraint = lambda x, m=method: m(self.from_ndarray(x))
+                match method.constraint_type:
+                    case "equation":
+                        constraints.append(
+                            NonlinearConstraint(wrapped_constraint, 0, 0)
+                        )
+                    case "less_than":
+                        constraints.append(
+                            NonlinearConstraint(wrapped_constraint, -np.inf, 0)
+                        )
+                    case "greater_than":
+                        constraints.append(
+                            NonlinearConstraint(wrapped_constraint, 0, np.inf)
+                        )
 
         bounds = [getattr(self, field.name).bound() for field in fields(self)]
 
+        for f in extra_constraints:
+            # wrapper = lambda x, func=f: func(self.from_ndarray(x))
+            # wrapped_constraint = lambda x: method(self.from_ndarray(x))
+            wrapped_constraint = lambda x, func=f: func(self.from_ndarray(x))
+
+            if isinstance(f, Eq):
+                constraints.append(NonlinearConstraint(wrapped_constraint, 0, 0))
+            elif isinstance(f, Lt):
+                constraints.append(NonlinearConstraint(wrapped_constraint, -np.inf, 0))
+            elif isinstance(f, Gt):
+                constraints.append(NonlinearConstraint(wrapped_constraint, 0, np.inf))
+
         def objective(x):
-            squared_losses = [loss_f(self.from_ndarray(x)) ** 2 for loss_f in loss_fs]
+            squared_losses = [
+                objective_func(self.from_ndarray(x)) ** 2
+                for objective_func in objective_funcs
+            ]
             return sum(squared_losses) / len(squared_losses)
 
         result = minimize(
@@ -155,5 +231,5 @@ class System:
                 formatted_value = "{:.3f~P}".format(value)
                 output.append(f"{field}: {formatted_value}")
             else:
-                output.append(f"{field}: {value:.3f}")
+                output.append(f"{field}: {value:.6f}")
         return "\n".join(output)
