@@ -56,7 +56,7 @@ class Eq:
     def __call__(self, vars: A) -> Num:
         lhs_ = self.lhs(vars) if callable(self.lhs) else self.lhs
         rhs_ = self.rhs(vars) if callable(self.rhs) else self.rhs
-        return lhs_ - rhs_
+        return _magnitude(lhs_ - rhs_)
 
 
 class Lt:
@@ -72,7 +72,7 @@ class Lt:
     def __call__(self, vars: A) -> Num:
         lhs_ = self.lhs(vars) if callable(self.lhs) else self.lhs
         rhs_ = self.rhs(vars) if callable(self.rhs) else self.rhs
-        return lhs_ - rhs_
+        return _magnitude(lhs_ - rhs_)
 
 
 class Gt:
@@ -88,22 +88,16 @@ class Gt:
     def __call__(self, vars: A) -> Num:
         lhs_ = self.lhs(vars) if callable(self.lhs) else self.lhs
         rhs_ = self.rhs(vars) if callable(self.rhs) else self.rhs
-        return lhs_ - rhs_
+        return _magnitude(lhs_ - rhs_)
 
 
 @dataclass
 class System:
-    # def __post_init__(self):
-    #     for field in fields(self):
-    #         value = getattr(self, field.name)
-    #         if isinstance(value, (int, Num)) and isinstance(field.type, str):
-    #             setattr(self, field.name, Q(value, field.type))
-
     def to_ndarray(self):
         arr = []
         for field in fields(self):
             value = getattr(self, field.name)
-            if isinstance(value, Q):
+            if isinstance(value, Q_):
                 arr.append(value.magnitude)
             else:
                 arr.append(value)
@@ -113,7 +107,7 @@ class System:
         quantities = {
             field.name: (
                 Q(value, getattr(self, field.name).units)
-                if isinstance(getattr(self, field.name), Q)
+                if isinstance(getattr(self, field.name), Q_)
                 else value
             )
             for value, field in zip(values, fields(self))
@@ -157,7 +151,7 @@ class System:
     def to_str(self) -> str:
         output = []
         for field, value in self.__dict__.items():
-            if isinstance(value, Q):
+            if isinstance(value, Q_):
                 formatted_value = "{:.3f~P}".format(value)
                 output.append(f"{field}: {formatted_value}")
             else:
