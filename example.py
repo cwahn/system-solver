@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from system_engineering.core import Q, System, equation
 
 
+# State all the system variables
 @dataclass
 class DroneSystem(System):
     payload: Q
@@ -12,16 +13,20 @@ class DroneSystem(System):
     endurance: Q
     range: Q
 
+    # Should return lhs, rhs of a equation
     @equation
     def speed_eq(self):
         return self.cruising_speed, self.range / self.endurance
 
+    # Should return lhs, rhs of a equation
     @equation
     def mass_eq(self):
         return self.mtow, self.payload + self.frame_mass + self.pizza_box_mass
 
 
-drone_instance = DroneSystem(
+# Initial value and bound of variables
+# Q(value: Num, units=None, min: Num = None, max: Num = None, const: bool = False)
+drone_system = DroneSystem(
     payload=Q(1, "kg", const=True),
     frame_mass=Q(1, "kg", 0.5),
     pizza_box_mass=Q(0.5, "kg", 0.3),
@@ -31,12 +36,9 @@ drone_instance = DroneSystem(
     range=Q(12, "km", 10),
 )
 
-res, report = drone_instance.solve(
-    [
-        lambda x: x.mtow.magnitude,
-        lambda x: 1 / x.range.magnitude,
-    ]
-)
+# Optional objective function to minimize
+system_solution, report = drone_system.solve(lambda x: x.mtow / x.range.magnitude)
 
-print(report, "\n")
-print(res.to_str())
+
+print(system_solution, "\n")
+print(report)

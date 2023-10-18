@@ -1,31 +1,33 @@
 # system-engineering
 Python system engineering library
 
-# Usage
-## Parameters
-The parameters of a system shoul be expressed as a `dataclass` inheriting `SystemParam`. The members of the class could be float or `pin` `Quantity`, whihch represent physical quantity with unit. The value of each member will be used as initial guess to solve system numerically.
+## Usage
 
-## Equantions, Restrictions, and Target Function
-Often system engineering problem includes complex relations between parameters. Which includes equations, restrictions, and target functions to be minimized.
+### System Variables
+The variables of a system should be expressed as a `dataclass` inheriting from `System`. Each member of this class should be of type `Q` which represents a physical quantity with a unit and optional bounds. The initial value of each member will be used as an initial guess to solve the system numerically.
 
-The `solve` method of the `SystemParam` class will take list of this functions. The key is Callable of signature `Callable[[SystemParam], Union[float, Quantitiy]]`. This functios will take parameters of the system and result a single value. 
+### Equations, Restrictions, and Objective Function
+In system engineering problems, there often exist complex relations between variables which include equations, restrictions, and objective functions to be minimized.
 
-### Equation
-`Eq`, stands for equation which is concrete relation between parameters. Constructor of `Eq` will take two argugment, `lhs` and `rhs`. Each of them should be either `Callable[[SystemParam], Union[float, Quantitiy]]`, `float`, or `Quantitiy`. They will represent each side of a equation. Each side must have physically coherent units, but with exception of one side is `float`. In this case, the other side is automatically converted to magnitude.
+The `solve` method of the `System` class will use all equations and restrictions defined within the system class, and it will attempt to minimize the provided objective function.
 
-### Constraint or Inequality
-Sometimes there are conditions or inequalities that set of method should meet. They can be expressed with `Gt` and `Lt` which stands for 'Greater Than' and 'Lesser Than' respectively. Thes will take two arguments like `Eq`.
+#### Equation
+Equations represent concrete relations between variables. They should be defined as methods within the system class and decorated with the `@equation` decorator. These methods should return two values, representing the left and right hand sides of the equation.
 
-### Target Function
-All the other callables with signature of `Callable[[SystemParam], Union[float, Quantitiy]]` will be treated as target functions, which should be minimized. If there are more than one target function, they will be combined to form a sigle target function in a manner of MSE(Mean Squared Error).
+#### Constraint or Inequality
+There might be conditions or inequalities that a set of variables should meet. These can be represented as methods within the system class and decorated with the `@less_than` or `@greater_than` decorators.
 
-# Example
+#### Objective Function
+The objective function is a callable with the signature `Callable[[System], Union[float, Quantity]]` that the `solve` method attempts to minimize. This function takes the system variables and returns a single value. Only one objective function can be provided for minimization.
+
+## Example
 
 ```python
 from dataclasses import dataclass
 from system_engineering.core import Q, System, equation
 
 
+# State all the system variables
 @dataclass
 class DroneSystem(System):
     payload: Q
@@ -36,16 +38,20 @@ class DroneSystem(System):
     endurance: Q
     range: Q
 
+    # Should return lhs, rhs of a equation
     @equation
     def speed_eq(self):
         return self.cruising_speed, self.range / self.endurance
 
+    # Should return lhs, rhs of a equation
     @equation
     def mass_eq(self):
         return self.mtow, self.payload + self.frame_mass + self.pizza_box_mass
 
 
-drone_instance = DroneSystem(
+# Initial value and bound of variables
+# Q(value: Num, units=None, min: Num = None, max: Num = None, const: bool = False)
+drone_system = DroneSystem(
     payload=Q(1, "kg", const=True),
     frame_mass=Q(1, "kg", 0.5),
     pizza_box_mass=Q(0.5, "kg", 0.3),
@@ -55,45 +61,37 @@ drone_instance = DroneSystem(
     range=Q(12, "km", 10),
 )
 
-res, report = drone_instance.solve(
-    [
-        lambda x: x.mtow.magnitude,
-        lambda x: 1 / x.range.magnitude,
-    ]
-)
+# Optional objective function to minimize
+system_solution, report = drone_system.solve(lambda x: x.mtow / x.range.magnitude)
 
-print(report, "\n")
-print(res.to_str())
+
+print(system_solution, "\n")
+print(report)
 
 
 ```
-## Result
+### Result
 
 ```
-Optimization terminated successfully    (Exit mode 0)
-            Current function value: 14.119999999999997
-            Iterations: 27
-            Function evaluations: 176
-            Gradient evaluations: 23
- message: Optimization terminated successfully
- success: True
-  status: 0
-     fun: 14.119999999999997
-       x: [ 1.000e+00  5.000e-01  3.000e-01  1.800e+00  5.000e+00
-            2.000e+03  1.000e+01]
-     nit: 27
-     jac: [       nan  0.000e+00  0.000e+00  1.800e+00  5.000e+00
-            0.000e+00  0.000e+00]
-    nfev: 176
-    njev: 23 
-
 payload: 1.000 kg
 frame_mass: 0.500 kg
 pizza_box_mass: 0.300 kg
 mtow: 1.800 kg
-cruising_speed: 5.000 m/s
-endurance: 2000.000 s
-range: 10.000 km
+cruising_speed: 15.000 m/s
+endurance: 25.000 min
+range: 22.500 km 
+
+ message: Optimization terminated successfully
+ success: True
+  status: 0
+     fun: 0.07999999999999997
+       x: [ 1.000e+00  5.000e-01  3.000e-01  1.800e+00  1.500e+01
+            2.500e+01  2.250e+01]
+     nit: 28
+     jac: [       nan  0.000e+00  0.000e+00  4.444e-02 -0.000e+00
+           -0.000e+00 -3.556e-03]
+    nfev: 172
+    njev: 24
 ```
 
 ## Requirements
