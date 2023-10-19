@@ -24,51 +24,35 @@ The objective function is a callable with the signature `Callable[[System], Unio
 
 ```python
 from dataclasses import dataclass
-from system_engineering.core import Q, System, equation
+from system_solver.core import Q, System, equation
 
 
-# State all the system variables
+# State all the system variables with initial values and optioanl bounds of variables
+# Q(value: Num, units=None, min: Num = None, max: Num = None, const: bool = False)
 @dataclass
 class DroneSystem(System):
-    payload: Q
-    frame_mass: Q
-    pizza_box_mass: Q
-    mtow: Q
-    cruising_speed: Q
-    endurance: Q
-    range: Q
+    payload: Q = Q(1, "kg", const=True)
+    frame_mass: Q = Q(1, "kg", 0.5)
+    pizza_box_mass: Q = Q(0.5, "kg", 0.3)
+    mtow: Q = Q(4, "kg")
+    cruising_speed: Q = Q(7, "m/s", 5, 15)
+    endurance: Q = Q(15, "min", 10, 25)
+    range: Q = Q(12, "km", 10)
 
-    # Should return lhs, rhs of a equation
+    # Equations and inequalities should return lhs, rhs
     @equation
     def speed_eq(self):
         return self.cruising_speed, self.range / self.endurance
 
-    # Should return lhs, rhs of a equation
     @equation
     def mass_eq(self):
         return self.mtow, self.payload + self.frame_mass + self.pizza_box_mass
 
 
-# Initial value and bound of variables
-# Q(value: Num, units=None, min: Num = None, max: Num = None, const: bool = False)
-drone_system = DroneSystem(
-    payload=Q(1, "kg", const=True),
-    frame_mass=Q(1, "kg", 0.5),
-    pizza_box_mass=Q(0.5, "kg", 0.3),
-    mtow=Q(4, "kg"),
-    cruising_speed=Q(7, "m/s", 5, 15),
-    endurance=Q(15, "min", 10, 25),
-    range=Q(12, "km", 10),
-)
-
 # Optional objective function to minimize
-system_solution, report = drone_system.solve(lambda x: x.mtow / x.range.magnitude)
+solved_system, _ = DroneSystem().solve(lambda x: x.mtow / x.range.magnitude)
 
-
-print(system_solution, "\n")
-print(report)
-
-
+print(solved_system)
 ```
 ### Result
 
@@ -80,18 +64,6 @@ mtow: 1.800 kg
 cruising_speed: 15.000 m/s
 endurance: 25.000 min
 range: 22.500 km 
-
- message: Optimization terminated successfully
- success: True
-  status: 0
-     fun: 0.07999999999999997
-       x: [ 1.000e+00  5.000e-01  3.000e-01  1.800e+00  1.500e+01
-            2.500e+01  2.250e+01]
-     nit: 28
-     jac: [       nan  0.000e+00  0.000e+00  4.444e-02 -0.000e+00
-           -0.000e+00 -3.556e-03]
-    nfev: 172
-    njev: 24
 ```
 
 ## Requirements

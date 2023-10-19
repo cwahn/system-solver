@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from system_engineering.core import Q, System, equation
+from system_solver.core import Q, Gt, Lt, System, equation, greater_than
 
 
-# State all the system variables
+# State all the system variables with 
 @dataclass
 class DroneSystem(System):
     payload: Q
@@ -13,16 +13,18 @@ class DroneSystem(System):
     endurance: Q
     range: Q
 
-    # Should return lhs, rhs of a equation
+    # Equations and inequalities should return lhs, rhs
     @equation
     def speed_eq(self):
         return self.cruising_speed, self.range / self.endurance
 
-    # Should return lhs, rhs of a equation
     @equation
     def mass_eq(self):
         return self.mtow, self.payload + self.frame_mass + self.pizza_box_mass
 
+    @greater_than
+    def mtow_min(self):
+        return self.mtow, Q(0, "kg")
 
 # Initial values and optioanl bounds of variables
 # Q(value: Num, units=None, min: Num = None, max: Num = None, const: bool = False)
@@ -36,9 +38,16 @@ drone_system = DroneSystem(
     range=Q(12, "km", 10),
 )
 
-# Optional objective function to minimize
-solved_system, report = drone_system.solve(lambda x: x.mtow / x.range.magnitude)
 
+# Optional objective function to minimize with extra constraints and other methods
+solved_system, report = drone_system.solve(
+    lambda x: x.mtow / x.range.magnitude,
+    extra_constraints=[
+        Gt(lambda x: x.mtow, Q(1.9, "kg")),
+        Lt(lambda x: x.range, Q(22, "km")),
+    ],
+    method="trust-constr",
+)
 
 print(solved_system, "\n")
 print(report)

@@ -31,15 +31,15 @@ class Q(Q_):
         return (self.min, self.max)
 
 
-def _magnitude(value: Union[Q, Num]) -> Num:
+def _magnitude(value: Q | Num) -> Num:
     return value.magnitude if isinstance(value, Q) else value
 
 
-def _is_quantity(value: Union[Q, Num]) -> bool:
+def _is_quantity(value: Q | Num) -> bool:
     return isinstance(value, Q_)
 
 
-def _assert_dimensionality(lhs: Union[Q, Num], rhs: Union[Q, Num]):
+def _assert_dimensionality(lhs: Q | Num, rhs: Q | Num):
     if _is_quantity(lhs) and _is_quantity(rhs):
         if lhs.dimensionality != rhs.dimensionality:
             raise ValueError("The quantities don't have the same dimensionality.")
@@ -48,8 +48,8 @@ def _assert_dimensionality(lhs: Union[Q, Num], rhs: Union[Q, Num]):
 class Eq:
     def __init__(
         self,
-        lhs: Union[Callable[[A], Num], Union[Q, Num]],
-        rhs: Union[Callable[[A], Num], Union[Q, Num]] = 0,
+        lhs: Union[Callable[[A], Num], Q | Num],
+        rhs: Union[Callable[[A], Num], Q | Num] = 0,
     ) -> None:
         _assert_dimensionality(lhs, rhs)
         self.lhs = lhs
@@ -64,8 +64,8 @@ class Eq:
 class Lt:
     def __init__(
         self,
-        lhs: Union[Callable[[A], Num], Union[Q, Num]],
-        rhs: Union[Callable[[A], Num], Union[Q, Num]],
+        lhs: Union[Callable[[A], Num], Q | Num],
+        rhs: Union[Callable[[A], Num], Q | Num],
     ) -> None:
         _assert_dimensionality(lhs, rhs)
         self.lhs = lhs
@@ -80,8 +80,8 @@ class Lt:
 class Gt:
     def __init__(
         self,
-        lhs: Union[Callable[[A], Num], Union[Q, Num]],
-        rhs: Union[Callable[[A], Num], Union[Q, Num]],
+        lhs: Union[Callable[[A], Num], Q | Num],
+        rhs: Union[Callable[[A], Num], Q | Num],
     ) -> None:
         _assert_dimensionality(lhs, rhs)
         self.lhs = lhs
@@ -173,6 +173,10 @@ class System:
         extra_constraints: List[Callable[["System"], Num]] = [],
         method="SLSQP",
     ) -> Tuple["System", str]:
+        # # ! TEMP
+        # print([field.name for field in fields(self)])
+        # print([getattr(self, field.name).bound() for field in fields(self)])
+
         objective = (
             (lambda x: _magnitude(objective_funcs(self.from_ndarray(x))))
             if not objective_funcs == None
