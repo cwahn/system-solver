@@ -20,7 +20,6 @@ class Q(Q_):
         min: Num = None,
         max: Num = None,
         const: bool = False,
-        **kwargs,
     ):
         instance = super(Q, cls).__new__(cls, value, units)
         instance.min = min if const == False else value
@@ -31,15 +30,15 @@ class Q(Q_):
         return (self.min, self.max)
 
 
-def _magnitude(value: Q | Num) -> Num:
+def _magnitude(value: Num | Q) -> Num:
     return value.magnitude if isinstance(value, Q) else value
 
 
-def _is_quantity(value: Q | Num) -> bool:
+def _is_quantity(value: Num | Q) -> bool:
     return isinstance(value, Q_)
 
 
-def _assert_dimensionality(lhs: Q | Num, rhs: Q | Num):
+def _assert_dimensionality(lhs: Num | Q, rhs: Num | Q):
     if _is_quantity(lhs) and _is_quantity(rhs):
         if lhs.dimensionality != rhs.dimensionality:
             raise ValueError("The quantities don't have the same dimensionality.")
@@ -48,8 +47,8 @@ def _assert_dimensionality(lhs: Q | Num, rhs: Q | Num):
 class Eq:
     def __init__(
         self,
-        lhs: Union[Callable[[A], Num], Q | Num],
-        rhs: Union[Callable[[A], Num], Q | Num] = 0,
+        lhs: Union[Callable[[A], Num], Num | Q],
+        rhs: Union[Callable[[A], Num], Num | Q] = 0,
     ) -> None:
         _assert_dimensionality(lhs, rhs)
         self.lhs = lhs
@@ -64,8 +63,8 @@ class Eq:
 class Lt:
     def __init__(
         self,
-        lhs: Union[Callable[[A], Num], Q | Num],
-        rhs: Union[Callable[[A], Num], Q | Num],
+        lhs: Union[Callable[[A], Num], Num | Q],
+        rhs: Union[Callable[[A], Num], Num | Q],
     ) -> None:
         _assert_dimensionality(lhs, rhs)
         self.lhs = lhs
@@ -80,8 +79,8 @@ class Lt:
 class Gt:
     def __init__(
         self,
-        lhs: Union[Callable[[A], Num], Q | Num],
-        rhs: Union[Callable[[A], Num], Q | Num],
+        lhs: Union[Callable[[A], Num], Num | Q],
+        rhs: Union[Callable[[A], Num], Num | Q],
     ) -> None:
         _assert_dimensionality(lhs, rhs)
         self.lhs = lhs
@@ -148,23 +147,17 @@ class System:
 
     def _get_constraints(self):
         constraints = []
-        for _, method in inspect.getmembers(self, predicate=inspect.ismethod):
-            if hasattr(method, "constraint_type"):
-                wrapped_constraint = lambda x, m=method: m(self.from_ndarray(x))
+        for _, f in inspect.getmembers(self, predicate=inspect.ismethod):
+            if hasattr(f, "constraint_type"):
+                wrapped_f = lambda x, m=f: m(self.from_ndarray(x))
 
-                match method.constraint_type:
+                match f.constraint_type:
                     case "equation":
-                        constraints.append(
-                            NonlinearConstraint(wrapped_constraint, 0, 0)
-                        )
+                        constraints.append(NonlinearConstraint(wrapped_f, 0, 0))
                     case "less_than":
-                        constraints.append(
-                            NonlinearConstraint(wrapped_constraint, -np.inf, 0)
-                        )
+                        constraints.append(NonlinearConstraint(wrapped_f, -np.inf, 0))
                     case "greater_than":
-                        constraints.append(
-                            NonlinearConstraint(wrapped_constraint, 0, np.inf)
-                        )
+                        constraints.append(NonlinearConstraint(wrapped_f, 0, np.inf))
         return constraints
 
     def solve(
@@ -173,29 +166,25 @@ class System:
         extra_constraints: List[Callable[["System"], Num]] = [],
         method="SLSQP",
     ) -> Tuple["System", str]:
-        # # ! TEMP
-        # print([field.name for field in fields(self)])
-        # print([getattr(self, field.name).bound() for field in fields(self)])
-
         objective = (
             (lambda x: _magnitude(objective_funcs(self.from_ndarray(x))))
             if not objective_funcs == None
             else (lambda x: 0.0)
         )
 
-        constraints = self._get_constraints()
-
         bounds = [getattr(self, field.name).bound() for field in fields(self)]
 
+        constraints = self._get_constraints()
+
         for f in extra_constraints:
-            wrapped_constraint = lambda x, func=f: func(self.from_ndarray(x))
+            wrapped_f = lambda x, func=f: func(self.from_ndarray(x))
 
             if isinstance(f, Eq):
-                constraints.append(NonlinearConstraint(wrapped_constraint, 0, 0))
+                constraints.append(NonlinearConstraint(wrapped_f, 0, 0))
             elif isinstance(f, Lt):
-                constraints.append(NonlinearConstraint(wrapped_constraint, -np.inf, 0))
+                constraints.append(NonlinearConstraint(wrapped_f, -np.inf, 0))
             elif isinstance(f, Gt):
-                constraints.append(NonlinearConstraint(wrapped_constraint, 0, np.inf))
+                constraints.append(NonlinearConstraint(wrapped_f, 0, np.inf))
 
         result = minimize(
             objective,
@@ -210,11 +199,11 @@ class System:
         return self.from_ndarray(result.x), result
 
     def __str__(self) -> str:
-        output = []
+        lines = []
         for field, value in self.__dict__.items():
             if isinstance(value, Q_):
                 formatted_value = "{:.3f~P}".format(value)
-                output.append(f"{field}: {formatted_value}")
+                lines.append(f"{field}: {formatted_value}")
             else:
-                output.append(f"{field}: {value:.3f}")
-        return "\n".join(output)
+                lines.append(f"{field}: {value:.3f}")
+        return "\n".join(lines)
