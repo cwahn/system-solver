@@ -170,6 +170,7 @@ class System:
         self,
         objective_funcs: Callable[["System"], Num] | None = None,
         extra_constraints: List[Callable[["System"], Num]] = [],
+        method="SLSQP",
     ) -> Tuple["System", str]:
         objective = (
             (lambda x: _magnitude(objective_funcs(self.from_ndarray(x))))
@@ -194,7 +195,7 @@ class System:
         result = minimize(
             objective,
             self.to_ndarray(),
-            method="SLSQP",
+            method=method,
             bounds=bounds,
             constraints=constraints,
             tol=1e-15,

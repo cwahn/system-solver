@@ -24,7 +24,7 @@ class DroneSystem(System):
         return self.mtow, self.payload + self.frame_mass + self.pizza_box_mass
 
 
-# Initial value and bound of variables
+# Initial values and optioanl bounds of variables
 # Q(value: Num, units=None, min: Num = None, max: Num = None, const: bool = False)
 drone_system = DroneSystem(
     payload=Q(1, "kg", const=True),
@@ -37,8 +37,8 @@ drone_system = DroneSystem(
 )
 
 # Optional objective function to minimize
-system_solution, report = drone_system.solve(lambda x: x.mtow / x.range.magnitude)
+solved_system, report = drone_system.solve(lambda x: x.mtow / x.range.magnitude)
 
 
-print(system_solution, "\n")
+print(solved_system, "\n")
 print(report)
