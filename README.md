@@ -1,5 +1,5 @@
-# system-engineering
-Python system engineering library
+# system-solver
+Python system of equation solving & optimization library
 
 ## Usage
 
