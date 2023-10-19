@@ -1,14 +1,15 @@
 from dataclasses import dataclass, fields
 import inspect
-from typing import Any, List, Union, Tuple, Callable, TypeVar
+from typing import List, Union, Tuple, Callable, TypeVar
 from math import exp
 from scipy.optimize import minimize, NonlinearConstraint
 import numpy as np
 from pint import Quantity
 
 Q_ = Quantity
-A = TypeVar("A")
 Num = Union[int, float]
+
+A = TypeVar("A")
 
 
 class Q(Q_):
